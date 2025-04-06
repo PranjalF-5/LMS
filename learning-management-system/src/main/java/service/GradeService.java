@@ -16,6 +16,10 @@ import repository.UserRepository;
 
 import java.util.List;
 
+/**
+ * Service class for handling grade-related business logic.
+ * Manages grade assignment and validation operations.
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -25,12 +29,37 @@ public class GradeService {
     private final UserRepository userRepository;
     private final CourseRepository courseRepository;
 
+    /**
+     * Constructor for GradeService.
+     * 
+     * @param gradeRepository Repository for grade data access
+     * @param userRepository Repository for user data access
+     * @param courseRepository Repository for course data access
+     */
+    public GradeService(GradeRepository gradeRepository, UserRepository userRepository, CourseRepository courseRepository) {
+        this.gradeRepository = gradeRepository;
+        this.userRepository = userRepository;
+        this.courseRepository = courseRepository;
+    }
+
+    /**
+     * Assigns a grade to a student for a specific course.
+     * 
+     * @param gradeDTO The grade details including student, course, and score
+     * @return The grade response DTO containing the assigned grade details
+     * @throws RuntimeException if the student or course is not found
+     * @throws IllegalArgumentException if the score is invalid
+     */
     @Transactional
     public GradeResponseDTO assignGrade(GradeDTO gradeDTO) {
+        // Validate the score
+        validateScore(gradeDTO.getScore());
+
+        // Find the student and course
         User student = userRepository.findById(gradeDTO.getStudentId())
-                .orElseThrow(() -> new EntityNotFoundException("Student not found"));
+                .orElseThrow(() -> new RuntimeException("Student not found"));
         Course course = courseRepository.findById(gradeDTO.getCourseId())
-                .orElseThrow(() -> new EntityNotFoundException("Course not found"));
+                .orElseThrow(() -> new RuntimeException("Course not found"));
 
         // Check if grade already exists for this student & course
         Grade grade = gradeRepository.findByStudentAndCourse(student, course)
@@ -47,6 +76,18 @@ public class GradeService {
         Grade savedGrade = gradeRepository.save(grade);
 
         return convertToResponseDTO(savedGrade);
+    }
+
+    /**
+     * Validates that a score is within the acceptable range (0-100).
+     * 
+     * @param score The score to validate
+     * @throws IllegalArgumentException if the score is outside the valid range
+     */
+    private void validateScore(Integer score) {
+        if (score < 0 || score > 100) {
+            throw new IllegalArgumentException("Score must be between 0 and 100");
+        }
     }
 
     public GradeViewDTO getGradeByStudentAndCourse(User student, Long courseId) {
